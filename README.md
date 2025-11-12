@@ -153,7 +153,7 @@ bot.run()
 ### Неверный HOST/PORT
 ```python
 # Локально (на одной машине):
-bot = MyBot(host='localhost', port=5000)
+bot = MyBot(host='127.0.0.1', port=5000)
 
 # На другой машине (замените IP):
 bot = MyBot(host='192.168.1.100', port=5000)
