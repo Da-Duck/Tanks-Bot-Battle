@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 import time
 import math
 import random
@@ -61,16 +61,17 @@ CONFIG = {
     },
     'game': {
         'tank_count': 4,
-        'fps': 60,
+        'fps': 50,
         'game_mode': 'ffa',
-        'total_games': 1,
+        'total_games': 3,
         'show_gui_after': True,
     },
     'network': {
+        # ВАЖНО: 0.0.0.0 слушает все интерфейсы — боты могут подключаться с других машин
         'ip': '0.0.0.0',
         'port': 5000,
         'enabled': True,
-        'update_interval': 100,
+        'update_interval': 100,   # ms — частота рассылки состояния удалённым ботам
     }
 }
 
@@ -100,12 +101,13 @@ stats_log = []
 TANK_STATS = {}
 TANK_WINS = {}
 
-# ============== СЕТЬ ==============
+# -------- сеть --------
 
 NET_SERVER = None     # экземпляр Server
 WAIT_WIN = None       # окно "Ожидание ботов"
 NET_LAST_BROADCAST_TS = 0.0  # троттлинг рассылки
 
+# ============== СЕТЬ ==============
 
 class RemoteClient:
     def __init__(self, sock, addr, tank_id):
@@ -127,7 +129,7 @@ class RemoteClient:
                 line = line.strip()
                 if not line:
                     continue
-                # JSON {"cmd":"rfs"} или "rfs"
+                # допускаем JSON {"cmd":"rfs"} или просто "rfs"
                 if line.startswith('{'):
                     try:
                         j = json.loads(line)
@@ -162,6 +164,7 @@ class Server:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
+            # Не везде поддерживается, потому — best-effort
             self.sock.setsockopt(socket.SOL_SOCKET, getattr(socket, "SO_REUSEPORT", 15), 1)
         except Exception:
             pass
@@ -186,7 +189,7 @@ class Server:
                 break
             with self.lock:
                 used = set(self.clients.keys())
-                # если все места заняты
+                # если уже все места заняты — вежливо отказать
                 if len(used) >= self.expected:
                     try:
                         s.sendall((json.dumps({"error": "room_full"}, ensure_ascii=False) + "\n").encode('utf-8'))
@@ -241,6 +244,7 @@ class Server:
     def connected_count(self):
         with self.lock:
             return len([c for c in self.clients.values() if c.alive])
+
 
 # ============== ТАНКИ ==============
 
@@ -368,6 +372,7 @@ class Tank:
             BULLETS.append([bx, by, dx, dy, b, self])
             self.last_shot = now
 
+
 # ============== ПРЕПЯТСТВИЯ ==============
 
 def intersects(r1, r2):
@@ -417,7 +422,8 @@ def generate_obstacle(areas, lst, fill_key, outline_key):
                                  outline=CONFIG['colors'][outline_key], width=3)
     lst.append(r); return r
 
-# ============== ПРОРИСОВКА ==============
+
+# ============== РИСОВАНИЕ ==============
 
 def draw_tank(t):
     if t.hp <= 0:
@@ -504,7 +510,8 @@ def draw_stats():
     game_canvas.create_text(10, CONFIG['window']['height']-30, anchor="nw",
                             text=f"🎯 Игра {current_game}/{total_games}", font=("Segoe UI", 11, "bold"), fill="yellow")
 
-# ============== ПУЛИ ==============
+
+# ============== ПУЛИ/КОЛЛИЗИИ ==============
 
 def check_collision(x, y, size, obs):
     for ox1, oy1, ox2, oy2 in obs:
@@ -547,6 +554,7 @@ def check_game_over():
         game_over = True
         show_game_over(alive[0] if alive else None)
 
+
 # ============== ИГРОВОЙ ЦИКЛ ==============
 
 def toggle_pause():
@@ -581,6 +589,7 @@ def restart_game():
     create_obstacles()
     create_game_buttons()
 
+    # Запуcтить цикл
     game_loop()
 
 def create_game_buttons():
@@ -629,10 +638,12 @@ def show_game_over(winner):
         text = "⚔️ НИЧЬЯ! ⚔️"
     lbl = tk.Label(w, text=text, font=("Segoe UI", 28, "bold"), fg="#FFD700", bg="#111111", relief="solid", bd=2)
     lbl.place(x=250, y=280, width=780, height=80)
+    # Без кнопки "Новая игра" — серия рулится автоматически
 
 def game_loop():
     global game_over, current_game, total_games
     if game_over:
+        # перейти к следующей игре серии или назад в меню
         w.after(1200, handle_game_end)
         return
     if not game_paused:
@@ -657,6 +668,7 @@ def handle_game_end():
     else:
         close_game_window()
         open_settings_gui()
+
 
 # ============== СЕТЕВЫЕ FOV/ФАЙЛЫ ==============
 
@@ -694,6 +706,7 @@ def net_tick():
             pass
     if NET_SERVER:
         NET_SERVER.broadcast(msgs)
+
 
 # ============== ВВОД/ОКНА ==============
 
@@ -733,6 +746,7 @@ def open_game_window():
     # старт игры
     restart_game()
 
+
 # ============== ОКНО ОЖИДАНИЯ БОТОВ ==============
 
 class WaitingWindow:
@@ -759,8 +773,7 @@ class WaitingWindow:
 
     def tick(self):
         self.refresh()
-        if self.top.winfo_exists():
-            self.top.after(300, self.tick)
+        self.top.after(300, self.tick)
 
     def refresh(self):
         self.lb.delete(0, tk.END)
@@ -780,6 +793,7 @@ class WaitingWindow:
         WAIT_WIN = None
         open_game_window()
 
+
 # ============== МЕНЮ НАСТРОЕК ==============
 
 class SettingsGUI:
@@ -787,20 +801,20 @@ class SettingsGUI:
         self.root = root
         self.window = tk.Toplevel(root)
         self.window.title("⚙️ Танки. Битва ботов")
-        self.window.geometry("520x900")
+        self.window.geometry("520x760")
         self.window.resizable(False, False)
         self.window.config(bg="#111111")
 
         sw = self.window.winfo_screenwidth()
         sh = self.window.winfo_screenheight()
-        x = (sw - 520)//2; y = (sh - 900)//2
-        self.window.geometry(f"520x900+{x}+{y}")
+        x = (sw - 520)//2; y = (sh - 760)//2
+        self.window.geometry(f"520x760+{x}+{y}")
         self.build_ui()
 
     def set_spin(self, sb, v): sb.delete(0, tk.END); sb.insert(0, str(v))
 
     def build_ui(self):
-        f = tk.Frame(self.window, bg="#111111"); f.pack(fill="both", expand=True, padx=10, pady=10)
+        f = tk.Frame(self.window, bg="#111111"); f.pack(fill="both", expand=True)
         row = 0
         tk.Label(f, text="⚙️ ТАНКИ. БИТВА БОТОВ ⚙️", font=("Segoe UI", 16, "bold"), fg="#FFD700", bg="#111111").grid(row=row, column=0, columnspan=3, pady=16); row += 1
 
@@ -842,117 +856,9 @@ class SettingsGUI:
         self.upd = tk.Entry(f, width=12, bg="#222222", fg="#FFFFFF", font=("Segoe UI", 11, "bold"), bd=1, insertbackground='white'); self.upd.insert(0, str(CONFIG['network']['update_interval']))
         self.upd.grid(row=row, column=1, padx=18, pady=8, sticky="w"); row += 1
 
-        # Кнопки
-        btn_frame = tk.Frame(f, bg="#111111")
-        btn_frame.grid(row=row, column=0, columnspan=2, sticky="ew", padx=0, pady=12)
-        
-        btn_guide = tk.Button(btn_frame, text="📖 Гайд по ботам", font=("Segoe UI", 10, "bold"), bg="#0066CC", fg="#FFFFFF", command=self.show_guide, relief="flat")
-        btn_guide.pack(side="left", fill="x", expand=True, padx=4)
-        
-        btn_example = tk.Button(btn_frame, text="🤖 Пример бота", font=("Segoe UI", 10, "bold"), bg="#00AA00", fg="#FFFFFF", command=self.show_example, relief="flat")
-        btn_example.pack(side="left", fill="x", expand=True, padx=4)
-        
-        row += 1
-
         # Кнопка запуска
         btn = tk.Button(f, text="▶️ СТАРТ СЕРИИ ▶️", font=("Segoe UI", 14, "bold"), bg="#00AA00", fg="#FFFFFF", command=self.start_series, relief="flat")
         btn.grid(row=row, column=0, columnspan=2, pady=18, padx=18, sticky="ew"); row += 1
-
-    def show_guide(self):
-        """Показать окно с гайдом"""
-        info_window = tk.Toplevel(self.window)
-        info_window.title("📖 Гайд по написанию ботов")
-        info_window.geometry("600x500")
-        
-        text_widget = tk.Text(info_window, wrap="word", bg="#1a1a1a", fg="#00FF00", font=("Consolas", 9))
-        text_widget.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        guide_text = """🤖 БЫСТРЫЙ СТАРТ
-
-1. Импортируйте нужные модули:
-   import socket, json, time
-
-2. Создайте класс бота с методами:
-   - __init__(self, host, port)
-   - connect()
-   - send_command(command)
-   - receive_fov()
-   - run()
-
-3. КОМАНДЫ (отправляйте одну или комбинируйте):
-   "l" - повернуть влево
-   "r" - повернуть вправо
-   "f" - вперед
-   "b" - назад
-   "s" - выстрел
-   Пример: send_command("lfs")
-
-4. ПОЛУЧАЙТЕ ДАННЫЕ:
-   fov = receive_fov()
-   me = fov['bot']  # Ваше положение
-   enemies = fov['tanks']  # Враги
-   walls = fov['walls']  # Стены
-
-5. ПОДКЛЮЧЕНИЕ:
-   host = 'localhost'  (или IP сервера)
-   port = 5000
-
-📚 ПОЛНЫЙ ГАЙД: смотрите BOT_GUIDE.md"""
-        
-        text_widget.insert("1.0", guide_text)
-        text_widget.config(state="disabled")
-    
-    def show_example(self):
-        """Показать пример простого бота"""
-        info_window = tk.Toplevel(self.window)
-        info_window.title("🤖 Пример простого бота")
-        info_window.geometry("600x500")
-        
-        text_widget = tk.Text(info_window, wrap="word", bg="#1a1a1a", fg="#00FF00", font=("Consolas", 8))
-        text_widget.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        example_code = """import socket, json, time, random
-
-class MyBot:
-    def __init__(self, host='localhost', port=5000):
-        self.host, self.port = host, port
-        self.sock = None
-        self.connected = False
-    
-    def connect(self):
-        self.sock = socket.socket()
-        self.sock.connect((self.host, self.port))
-        line = self.sock.makefile('r').readline()
-        self.tank_id = json.loads(line)['tank_id']
-        print(f"Tank ID: {self.tank_id}")
-        self.connected = True
-    
-    def send_command(self, cmd):
-        msg = json.dumps({"cmd": cmd}) + "\\n"
-        self.sock.sendall(msg.encode('utf-8'))
-    
-    def receive_fov(self):
-        try:
-            line = self.sock.makefile('r').readline()
-            return json.loads(line)
-        except:
-            return None
-    
-    def run(self):
-        if not self.connect(): return
-        while self.connected:
-            fov = self.receive_fov()
-            if not fov: break
-            cmd = random.choice(["f","l","r","s",""])
-            if cmd: self.send_command(cmd)
-            time.sleep(0.05)
-
-if __name__ == "__main__":
-    bot = MyBot()
-    bot.run()"""
-        
-        text_widget.insert("1.0", example_code)
-        text_widget.config(state="disabled")
 
     def start_series(self):
         global CONFIG, current_game, total_games, NET_SERVER, WAIT_WIN
@@ -991,6 +897,7 @@ if __name__ == "__main__":
             open_game_window()
 
         self.window.destroy()
+
 
 # ============== ОСНОВА ==============
 
