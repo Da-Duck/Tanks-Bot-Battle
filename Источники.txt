@@ -1,0 +1,11 @@
+Руководство по программированию сокетов на Python. От введения до работающего примера https://habr.com/ru/companies/skillfactory/articles/690186/?ysclid=mh21xopm9v194267667
+
+Справочник Python
+https://docs.python.org/3/reference/index.html
+
+Справочник tkinter
+https://docs.python.org/3/library/tkinter.html
+
+Вдохновитель
+https://dendytanchiki.ru/tanchiki-dendi-1990-igrat-onlajn-na-dvoix/
+
