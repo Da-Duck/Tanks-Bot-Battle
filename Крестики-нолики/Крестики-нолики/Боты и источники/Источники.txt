@@ -1,0 +1,23 @@
+https://nostarch.com/pythoncrashcourse2e
+Книга "Python Crash Course" - базовый учебник по программированию на Python для начинающих.
+
+https://www.manning.com/books/grokking-algorithms
+Книга "Grokking Algorithms" - визуальное руководство по алгоритмам с примерами на Python.
+
+https://aima.cs.berkeley.edu
+Классический учебник "Artificial Intelligence: A Modern Approach" о принципах ИИ и игровых алгоритмах.
+
+https://docs.python.org/3/library/tkinter.html
+Официальная документация по Tkinter - библиотеке для создания графических интерфейсов.
+
+https://docs.python.org/3/library/subprocess.html
+Документация модуля subprocess для запуска внешних процессов (ботов).
+
+https://medium.com/swlh/tic-tac-toe-ai-in-python-82b67d098c76
+Статья о создании ИИ для игры в крестики-нолики с использованием Python.
+
+https://towardsdatascience.com/game-ai-minimax-algorithm-91347d22e5ef
+Объяснение алгоритма минимакса для создания игрового ИИ.
+
+https://www.geeksforgeeks.org/battleship-game-in-python/
+Пример реализации игры "Морской бой" на Python.

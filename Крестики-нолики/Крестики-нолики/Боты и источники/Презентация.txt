@@ -1,0 +1,4 @@
+https://docs.google.com/presentation/d/10KccXPc2Gmr1S9EaZjRMSAuvp7vZvnC8oPOv8Wh45uY/edit#slide=id.g343b440a377_1_54
+
+credits: спасибо Осипенко Мише 9И за тест программы и нахождение большого количества багов и недочётов
+by @DaDuckTG
