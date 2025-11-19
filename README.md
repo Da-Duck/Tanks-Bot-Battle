@@ -21,63 +21,96 @@ python tank_game.py
 ```python
 import socket
 import json
+import random
 import time
+import sys
 
-#подключение к игре
-class BotAPI:
-    def __init__(self, host='127.0.0.1', port=5000):
-        #создание сокета
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((host, port))
-        self.f = self.s.makefile('r', encoding='utf-8', newline='\n')
-        #получение id танка
-        hello = json.loads(self.f.readline().strip())
-        self.tank_id = hello['tank_id']
-    
-    #получение данных о поле
-    def get_fov(self):
-        line = self.f.readline()
-        if not line:
-            return None
-        return json.loads(line.strip())
-    
-    #отправка команды
-    def send_cmd(self, cmd):
-        self.s.sendall((cmd + "\n").encode('utf-8'))
-    
-    #закрытие соединения
-    def close(self):
-        try:
-            self.s.close()
-        except:
-            pass
 
-#главная логика бота
-if __name__ == "__main__":
-    b = BotAPI()  #подключение к локальной игре
+#задаем адрес сервера по умолчанию
+host = "127.0.0.1"
+port = 5000
+
+#если указали адрес и порт в аргументах, используем их
+if len(sys.argv) >= 3:
+    host = sys.argv[1]
+    port = int(sys.argv[2])
+
+#создаем tcp соединение с сервером игры
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect((host, port))
+
+#переключаемся на построчное чтение текста из сокета
+text = sock.makefile("r", encoding="utf-8")
+
+#читаем первую строку с приветствием от сервера
+hello = text.readline().strip()
+
+#пытаемся показать номер танка, если он есть
+try:
+    hellojson = json.loads(hello)
+    tankid = hellojson.get("tank_id")
+    if tankid is not None:
+        print(f"мой танк: {tankid + 1}")
+except json.JSONDecodeError:
+    print("не удалось прочитать приветствие от сервера")
+
+#основной цикл бота
+while True:
+    #читаем очередное состояние поля от сервера
+    line = text.readline()
+    if not line:
+        #если сервер закрыл соединение, выходим
+        print("соединение закрыто сервером")
+        break
+
+    line = line.strip()
+    if not line:
+        continue
+
     try:
-        while True:
-            data = b.get_fov()  #получение состояния поля
-            if not data:
-                break
-            
-            cmd = ""  #команда для танка
-            
-            #ваша логика здесь
-            #пример: стрелять если враг рядом
-            for enemy in data['enemies']:
-                dx = enemy['x'] - data['self']['x']
-                dy = enemy['y'] - data['self']['y']
-                distance = (dx**2 + dy**2)**0.5
-                if distance < 200:
-                    cmd = "s"  #огонь!
-                    break
-            
-            #отправка команды
-            b.send_cmd(cmd)
-            time.sleep(0.01)  #ожидание следующего тика
-    finally:
-        b.close()  #корректное завершение
+        view = json.loads(line)
+    except json.JSONDecodeError:
+        #если пришло что-то непонятное, просто пропускаем
+        continue
+
+    #простая случайная тактика:
+    #иногда поворачиваем, иногда едем, иногда стреляем
+    command = ""
+
+    #с небольшой вероятностью поворачиваем в случайную сторону
+    if random.random() < 0.6:
+        command += random.choice("lr")
+
+    #с небольшой вероятностью едем вперед или назад
+    if random.random() < 0.8:
+        command += random.choice("fb")
+
+    #если видим врагов, чаще жмем на выстрел
+    enemies = view.get("enemies", [])
+    if enemies and random.random() < 0.7:
+        command += "s"
+    elif random.random() < 0.1:
+        command += "s"
+
+    #если команда пустая, все равно немного дернемся вперед
+    if not command:
+        command = "f"
+
+    #упаковываем команду в json и отправляем на сервер
+    message = json.dumps({"cmd": command})
+    try:
+        sock.sendall((message + "\n").encode("utf-8"))
+    except OSError:
+        #если не удалось отправить команду, аккуратно выходим
+        print("ошибка отправки команды, выходим")
+        break
+
+    #делаем небольшую паузу, чтобы не спамить сервер
+    time.sleep(0.03)
+
+#закрываем соединение и файловый объект
+text.close()
+sock.close()
 ```
 
 ## Формат данных FOV
