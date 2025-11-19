@@ -69,7 +69,7 @@ CONFIG = {
         'port': 5000,
         'enabled': True,
         'update_interval': 100,
-        'bot_timeout': 10,
+        'bot_timeout': 100,
     }
 }
 
@@ -130,7 +130,7 @@ class RemoteClient:
                     continue
                 self.last_cmd_time = now
                 self.last_processed = now
-                #парсинг команды
+                #обработка команды
                 if line.startswith('{'):
                     try:
                         j = json.loads(line)
