@@ -19,7 +19,6 @@ python tank_game.py
 Создайте файл `my_bot.py` со следующим содержимым:
 
 ```python
-#api для разработки ботов
 import socket
 import json
 import time
