@@ -70,7 +70,7 @@ CONFIG = {
         'port': 5000,
         'enabled': True,
         'update_interval': 100,
-        'bot_timeout': 10,
+        'bot_timeout': 100,
     }
 }
 w = None
